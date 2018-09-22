@@ -609,7 +609,7 @@ class WhatsAPIDriver(object):
         participant_ids = self.group_get_participants_ids(group_id)
 
         for participant_id in participant_ids:
-            yield self.get_contact_from_id(participant_id)
+            yield self.get_contact_from_id(participant_id['_serialized'])
 
     def group_get_admin_ids(self, group_id):
         return self.wapi_functions.getGroupAdmins(group_id)
@@ -623,20 +623,32 @@ class WhatsAPIDriver(object):
     def get_profile_pic_from_id(self, id):
         """
         Get full profile pic from an id
+        The ID must be on your contact book to
+        successfully get their profile picture.
 
         :param id: ID
         :type id: str
         """
-        return b64decode(self.wapi_functions.getProfilePicFromId(id))
+        profile_pic = self.wapi_functions.getProfilePicFromId(id)
+        if profile_pic:
+            return b64decode(profile_pic)
+        else:
+            return False
 
     def get_profile_pic_small_from_id(self, id):
         """
         Get small profile pic from an id
+        The ID must be on your contact book to
+        successfully get their profile picture.
 
         :param id: ID
         :type id: str
         """
-        return b64decode(self.wapi_functions.getProfilePicSmallFromId(id))
+        profile_pic_small = self.wapi_functions.getProfilePicSmallFromId(id)
+        if profile_pic:
+            return b64decode(profile_pic_small)
+        else:
+            return False
 
     def download_file(self, url):
         return b64decode(self.wapi_functions.downloadFile(url))
@@ -735,3 +747,10 @@ class WhatsAPIDriver(object):
 
     def remove_participant_group(self, idGroup, idParticipant):
         return self.wapi_functions.removeParticipantGroup(idGroup,idParticipant)
+
+    def promove_participant_admin_group(self, idGroup, idParticipant):
+        return self.wapi_functions.promoteParticipantAdminGroup(idGroup,idParticipant)
+
+
+    def demote_participant_admin_group(self, idGroup, idParticipant):
+        return self.wapi_functions.demoteParticipantAdminGroup(idGroup,idParticipant)

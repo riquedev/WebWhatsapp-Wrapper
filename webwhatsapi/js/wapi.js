@@ -169,6 +169,7 @@ window.WAPI._serializeProfilePicThumb = (obj) => {
         tag: obj.tag
     });
 }
+
 window.WAPI.createGroup = function (name, contactsId) {
     if (!Array.isArray(contactsId)) {
         contactsId = [contactsId];
@@ -176,6 +177,13 @@ window.WAPI.createGroup = function (name, contactsId) {
 
     return window.Store.Wap.createGroup(name, contactsId);
 };
+
+window.WAPI.leaveGroup = function(groupId) {
+    groupId = typeof groupId == "string" ? groupId : groupId._serialized;
+    var group = window.Store.Chat.get(groupId);
+    return group.sendExit()
+};
+
 
 window.WAPI.getAllContacts = function (done) {
     const contacts = window.Store.Contact.map((contact) => WAPI._serializeContactObj(contact));
@@ -918,7 +926,9 @@ window.WAPI.getProfilePicSmallFromId = function(id, done) {
         } else {
             done(false);
         }
-    })
+    }, function(e) {
+		done(false);
+	})
 };
 
 window.WAPI.getProfilePicFromId = function(id, done) {
@@ -928,7 +938,9 @@ window.WAPI.getProfilePicFromId = function(id, done) {
         } else {
             done(false);
         }
-    })
+    }, function(e) {
+		done(false);
+	})
 };
 
 window.WAPI.downloadFileWithCredentials = function (url, done) {
@@ -1134,8 +1146,9 @@ window.WAPI.getBufferedNewMessages = function(done) {
 /** End new messages observable functions **/
 
 window.WAPI.sendImage = function (imgBase64, chatid, filename, caption, done) {
-    var chat = WAPI.getChat(chatid);
-    if (chat !== undefined) {
+	var idUser = new window.Store.UserConstructor(chatid);
+	// create new chat
+	return Store.Chat.find(idUser).then((chat) => {
         var mediaBlob = window.WAPI.base64ImageToFile(imgBase64, filename);
         var mc = new Store.MediaCollection();
         mc.processFiles([mediaBlob], chat, 1).then(() => {
@@ -1143,11 +1156,7 @@ window.WAPI.sendImage = function (imgBase64, chatid, filename, caption, done) {
             media.sendToChat(chat, {caption: caption});
             if (done !== undefined) done(true);
         });
-    } else {
-        if (done !== undefined) done(false);
-        return false;
-    }
-    return true;
+    });
 };
 
 window.WAPI.base64ImageToFile = function (b64Data, filename) {
@@ -1270,7 +1279,7 @@ window.WAPI.contactUnblock = function(id, done){
 }
 
 /**
- * 
+ * Remove participant of Group
  * @param {*} idGroup '0000000000-00000000@g.us'
  * @param {*} idParticipant '000000000000@c.us'
  * @param {*} done - function - Callback function to be called when a new message arrives.
@@ -1286,10 +1295,68 @@ window.WAPI.removeParticipantGroup = function(idGroup, idParticipant, done){
         done(false); return false;
     }
     
-    metaDataGroup.participants.removeParticipants([participant], function(){
+    metaDataGroup.participants.removeParticipants([participant]).then((ret)=>{
         const check = metaDataGroup.participants.get(idParticipant);
         if (check === undefined){ done(true); return true; }
         done(false); return false; 
+    })
+    
+}
+
+
+/**
+ * Promote Participant to Admin in Group
+ * @param {*} idGroup '0000000000-00000000@g.us'
+ * @param {*} idParticipant '000000000000@c.us'
+ * @param {*} done - function - Callback function to be called when a new message arrives.
+ */
+window.WAPI.promoteParticipantAdminGroup = function(idGroup, idParticipant, done){
+    const metaDataGroup = window.Store.GroupMetadata.get(idGroup);
+    if (metaDataGroup === undefined){
+        done(false); return false;
+    }
+    
+    const participant = metaDataGroup.participants.get(idParticipant);
+    if (participant === undefined){
+        done(false); return false;
+    }
+    
+    metaDataGroup.participants.promoteParticipants([participant]).then(()=>{
+        const checkParticipant = metaDataGroup.participants.get(idParticipant);
+        if (checkParticipant !== undefined){ 
+            if (checkParticipant.__x_isAdmin){
+                done(true); return true;
+            }
+        }
+        done(false); return false; 
+    })
+    
+}
+
+
+/**
+ * Demote Admin of Group
+ * @param {*} idGroup '0000000000-00000000@g.us'
+ * @param {*} idParticipant '000000000000@c.us'
+ * @param {*} done - function - Callback function to be called when a new message arrives.
+ */
+window.WAPI.demoteParticipantAdminGroup = function(idGroup, idParticipant, done){
+    const metaDataGroup = window.Store.GroupMetadata.get(idGroup);
+    if (metaDataGroup === undefined){
+        done(false); return false;
+    }
+    
+    const participant = metaDataGroup.participants.get(idParticipant);
+    if (participant === undefined){
+        done(false); return false;
+    }
+    
+    metaDataGroup.participants.demoteParticipants([participant]).then(()=>{
+        const checkParticipant = metaDataGroup.participants.get(idParticipant);
+        if (checkParticipant !== undefined && checkParticipant.__x_isAdmin){ 
+            done(false); return false;
+        }
+        done(true); return true; 
     })
     
 }
